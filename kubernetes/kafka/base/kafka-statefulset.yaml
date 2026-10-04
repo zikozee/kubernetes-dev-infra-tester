@@ -1,0 +1,89 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  namespace: default
+spec:
+  serviceName: kafka-headless
+  replicas: 1
+  podManagementPolicy: Parallel
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      terminationGracePeriodSeconds: 60
+      containers:
+      - name: kafka
+        image: confluentinc/cp-kafka:8.2.2
+        command:
+        - "/bin/bash"
+        - "-ec"
+        args:
+        - |
+          set -euo pipefail
+          ordinal="${HOSTNAME##*-}"
+          export KAFKA_NODE_ID="$((ordinal + 1))"
+          export KAFKA_ADVERTISED_LISTENERS="BROKER://${HOSTNAME}.kafka-headless.${POD_NAMESPACE}.svc.cluster.local:9092"
+          exec /etc/confluent/docker/run
+        ports:
+        - name: broker
+          containerPort: 9092
+        - name: controller
+          containerPort: 9093
+        envFrom:
+        - configMapRef:
+            name: kafka-common
+        - configMapRef:
+            name: kafka-variant
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 750m
+            memory: 1Gi
+        volumeMounts:
+        - name: data
+          mountPath: "/var/lib/kafka/data"
+        startupProbe:
+          tcpSocket:
+            port: 9092
+          timeoutSeconds: 3
+          periodSeconds: 10
+          failureThreshold: 60
+        readinessProbe:
+          tcpSocket:
+            port: 9092
+          timeoutSeconds: 3
+          periodSeconds: 10
+      enableServiceLinks: false
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+      labels:
+        app: kafka
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 2Gi

@@ -1,0 +1,66 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topics
+  namespace: default
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app: kafka-topics
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      containers:
+      - name: topics
+        image: confluentinc/cp-kafka:8.2.2
+        command:
+        - "/bin/bash"
+        - "-ec"
+        args:
+        - |
+          set -euo pipefail
+          # Check every broker, not just the bootstrap Service. Creation retries also
+          # cover the interval between a listening socket and controller registration.
+          for ((i=0; i<BROKER_COUNT; i++)); do
+            until kafka-broker-api-versions --bootstrap-server "kafka-${i}.kafka-headless:9092" >/dev/null 2>&1; do
+              sleep 5
+            done
+          done
+          read -r -a topics <<< "${TOPIC_NAMES:?TOPIC_NAMES must be set}"
+          if (( ${#topics[@]} == 0 )); then
+            echo 'At least one topic name is required.' >&2
+            exit 1
+          fi
+          for topic in "${topics[@]}"; do
+            until kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists \
+              --topic "$topic" --partitions 3 --replication-factor "$TOPIC_REPLICATION_FACTOR"; do
+              sleep 5
+            done
+            description="$(kafka-topics --bootstrap-server kafka:9092 --describe --topic "$topic")"
+            echo "$description"
+            if ! echo "$description" | grep -Eq "PartitionCount: *3[[:space:]]+ReplicationFactor: *${TOPIC_REPLICATION_FACTOR}([[:space:]]|$)"; then
+              echo "Unexpected topic layout for $topic; existing topics are never deleted or reassigned." >&2
+              exit 1
+            fi
+          done
+        envFrom:
+        - configMapRef:
+            name: kafka-variant
+        env:
+        - name: KAFKA_HEAP_OPTS
+          value: "-Xms64m -Xmx128m"
+        - name: TOPIC_NAMES
+          value: payment-request payment-response restaurant-approval-request restaurant-approval-response
+            customer
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+      enableServiceLinks: false
