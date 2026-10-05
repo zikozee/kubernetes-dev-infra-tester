@@ -1,0 +1,42 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+  namespace: default
+  labels:
+    app: redis-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-deployment
+  template:
+    metadata:
+      labels:
+        app: redis-deployment
+    spec:
+      containers:
+        - name: redis
+          image: redis:8.0-alpine # Tiny, secure, and blazing fast locally
+          ports:
+            - containerPort: 6379
+              name: redis
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: default
+  labels:
+    app: redis-deployment
+spec:
+  selector:
+    app: redis-deployment
+  ports:
+    - name: redis-service-port
+      protocol: TCP
+      port: 6379
+      targetPort: 6379 # FIX: Crucial to route incoming port 6379 traffic to the container port
+  type: LoadBalancer # Perfect for Docker Desktop
+  loadBalancerIP: ""
