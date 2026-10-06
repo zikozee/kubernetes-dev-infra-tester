@@ -1,0 +1,224 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authserver-deployment
+  namespace: default
+  labels:
+    app: authserver-deployment
+spec:
+  selector:
+    matchLabels:
+      app: authserver-deployment
+  template:
+    metadata:
+      labels:
+        app: authserver-deployment
+    spec:
+      containers:
+        - name: authserver-container
+          image: course.auth.demo:1.0
+          env:
+            - name: AUTH_DB_HOST
+              value: "postgres-service"
+            - name: AUTH_DB_PASSWORD
+              value: "admin"
+            - name: AUTH_DB_NAME
+              value: "postgres"
+            - name: GOOGLE_CLIENT_ID
+              value: "876045924111-bac6mujcbsu6kbciole8mhcal122tctk.apps.googleusercontent.com"
+            - name: GOOGLE_CLIENT_SECRET
+              value: "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"
+            - name: REDIS_HOST
+              value: "redis-service"
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "1024Mi"
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authserver-service
+  namespace: default
+  labels:
+    app: authserver-service
+spec:
+  selector:
+    app: authserver-deployment
+  ports:
+    - name: authserver-service-port
+      protocol: TCP
+      port: 8080
+  type: LoadBalancer
+  loadBalancerIP: ""
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: authserver-deployment
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: authserver-deployment
+  minReplicas: 2
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 85
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-deployment
+  namespace: default
+  labels:
+    app: payment-deployment
+spec:
+  selector:
+    matchLabels:
+      app: payment-deployment
+  template:
+    metadata:
+      labels:
+        app: payment-deployment
+    spec:
+      containers:
+        - name: payment-container
+          image: course.auth.payment.demo:1.0
+          env:
+            - name: AUTH_DB_HOST
+              value: "postgres-service"
+            - name: AUTH_DB_PASSWORD
+              value: "admin"
+            - name: AUTH_DB_NAME
+              value: "postgres"
+            - name: JWKS_URI
+              value: "http://authserver-service:8080/oauth2/jwks"
+            - name: JWKS_ISSUER
+              value: "http://authserver-service:8080" 
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "1024Mi"
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: default
+  labels:
+    app: payment-service
+spec:
+  selector:
+    app: payment-deployment
+  ports:
+    - name: payment-service-port
+      protocol: TCP
+      port: 9090
+  type: LoadBalancer
+  loadBalancerIP: ""
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: payment-deployment
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: payment-deployment
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 85
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reporting-deployment
+  namespace: default
+  labels:
+    app: reporting-deployment
+spec:
+  selector:
+    matchLabels:
+      app: reporting-deployment
+  template:
+    metadata:
+      labels:
+        app: reporting-deployment
+    spec:
+      containers:
+        - name: reporting-container
+          image: course.auth.reporting.demo:1.0
+          env:
+            - name: REPORTING_DB_HOSTNAME
+              value: "postgres-service"
+            - name: REPORTING_DB_PASSWORD
+              value: "admin"
+            - name: REPORTING_DB_NAME
+              value: "postgres"
+            - name: AUTH_SERVER_URI
+              value: "http://authserver-service:8080"
+            - name: PAYMENT_SERVER_URI
+              value: "http://payment-service:9090/payment" 
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "1024Mi"
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reporting-service
+  namespace: default
+  labels:
+    app: reporting-service
+spec:
+  selector:
+    app: reporting-deployment
+  ports:
+    - name: reporting-service-port
+      protocol: TCP
+      port: 7070
+  type: LoadBalancer
+  loadBalancerIP: ""
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: reporting-deployment
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: reporting-deployment
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 85
