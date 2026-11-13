@@ -1,0 +1,76 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authserver-deployment
+  namespace: default
+  labels:
+    app: authserver-deployment
+spec:
+  selector:
+    matchLabels:
+      app: authserver-deployment
+  template:
+    metadata:
+      labels:
+        app: authserver-deployment
+    spec:
+      containers:
+        - name: authserver-container
+          image: europe-west1-docker.pkg.dev/project-2eb3c816-8fa0-4150-972/course-oauth2-registry/authserver:5a340b2
+          env:
+            - name: AUTH_DB_HOST
+              value: "postgres-service"
+            - name: AUTH_DB_PASSWORD
+              value: "admin"
+            - name: AUTH_DB_NAME
+              value: "postgres"
+            - name: GOOGLE_CLIENT_ID
+              value: "876045924111-bac6mujcbsu6kbciole8mhcal122tctk.apps.googleusercontent.com"
+            - name: GOOGLE_CLIENT_SECRET
+              value: "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"
+            - name: REDIS_HOST
+              value: "redis-service"
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "1024Mi"
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authserver-service
+  namespace: default
+  labels:
+    app: authserver-service
+spec:
+  selector:
+    app: authserver-deployment
+  ports:
+    - name: authserver-service-port
+      protocol: TCP
+      port: 8080
+  type: LoadBalancer
+  loadBalancerIP: ""
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: authserver-deployment
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: authserver-deployment
+  minReplicas: 2
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 85
