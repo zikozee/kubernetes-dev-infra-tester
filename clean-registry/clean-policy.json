@@ -4,13 +4,15 @@
     "action": {"type": "Delete"},
     "condition": {
       "tagState": "any",
-      "olderThan": "30d"
+      "olderThan": "30d",
+      "packageNamePrefixes": ["SERVICE_ID"]
     }
   },
   {
     "name": "keep-latest-five",
     "action": {"type": "Keep"},
     "mostRecentVersions": {
+      "packageNamePrefixes": ["SERVICE_ID"],
       "keepCount": 5
     }
   }
