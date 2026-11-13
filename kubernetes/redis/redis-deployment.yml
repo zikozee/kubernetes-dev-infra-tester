@@ -37,6 +37,4 @@ spec:
     - name: redis-service-port
       protocol: TCP
       port: 6379
-      targetPort: 6379 # FIX: Crucial to route incoming port 6379 traffic to the container port
-  type: LoadBalancer # Perfect for Docker Desktop
-  loadBalancerIP: ""
+  type: ClusterIP
