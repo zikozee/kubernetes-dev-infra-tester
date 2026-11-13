@@ -37,4 +37,5 @@ spec:
     - name: postgres-service-port
       protocol: TCP
       port: 5432
-  type: ClusterIP
+  type: LoadBalancer
+  loadBalancerIP: ""
