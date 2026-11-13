@@ -65,8 +65,156 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: authserver-deployment
-  minReplicas: 2
-  maxReplicas: 3
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 85
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-deployment
+  namespace: default
+  labels:
+    app: payment-deployment
+spec:
+  selector:
+    matchLabels:
+      app: payment-deployment
+  template:
+    metadata:
+      labels:
+        app: payment-deployment
+    spec:
+      containers:
+        - name: payment-container
+          image: europe-west1-docker.pkg.dev/project-2eb3c816-8fa0-4150-972/course-oauth2-registry/payment:08fd089
+          env:
+            - name: AUTH_DB_HOST
+              value: "postgres-service"
+            - name: AUTH_DB_PASSWORD
+              value: "admin"
+            - name: AUTH_DB_NAME
+              value: "postgres"
+            - name: JWKS_URI
+              value: "http://authserver-service:8080/oauth2/jwks"
+            - name: JWKS_ISSUER
+              value: "http://authserver-service:8080"
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "1024Mi"
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: default
+  labels:
+    app: payment-service
+spec:
+  selector:
+    app: payment-deployment
+  ports:
+    - name: payment-service-port
+      protocol: TCP
+      port: 9090
+  type: LoadBalancer
+  loadBalancerIP: ""
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: payment-deployment
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: payment-deployment
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 85
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reporting-deployment
+  namespace: default
+  labels:
+    app: reporting-deployment
+spec:
+  selector:
+    matchLabels:
+      app: reporting-deployment
+  template:
+    metadata:
+      labels:
+        app: reporting-deployment
+    spec:
+      containers:
+        - name: reporting-container
+          image: europe-west1-docker.pkg.dev/project-2eb3c816-8fa0-4150-972/course-oauth2-registry/reporting:af052bd
+          env:
+            - name: REPORTING_DB_HOSTNAME
+              value: "postgres-service"
+            - name: REPORTING_DB_PASSWORD
+              value: "admin"
+            - name: REPORTING_DB_NAME
+              value: "postgres"
+            - name: AUTH_SERVER_URI
+              value: "http://authserver-service:8080"
+            - name: PAYMENT_SERVER_URI
+              value: "http://payment-service:9090/payment"
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "1024Mi"
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reporting-service
+  namespace: default
+  labels:
+    app: reporting-service
+spec:
+  selector:
+    app: reporting-deployment
+  ports:
+    - name: reporting-service-port
+      protocol: TCP
+      port: 7070
+  type: LoadBalancer
+  loadBalancerIP: ""
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: reporting-deployment
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: reporting-deployment
+  minReplicas: 1
+  maxReplicas: 2
   metrics:
     - type: Resource
       resource:
