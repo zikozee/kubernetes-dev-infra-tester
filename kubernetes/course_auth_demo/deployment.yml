@@ -102,9 +102,9 @@ spec:
             - name: AUTH_DB_NAME
               value: "postgres"
             - name: JWKS_URI
-              value: "http://authserver-service:8080/oauth2/jwks"
+              value: "http://<USE-AUTHSERVER_IP>:8080/oauth2/jwks"
             - name: JWKS_ISSUER
-              value: "http://authserver-service:8080"
+              value: "http://<USE-AUTHSERVER_IP:8080"
           resources:
             limits:
               cpu: "500m"
@@ -176,9 +176,9 @@ spec:
             - name: REPORTING_DB_NAME
               value: "postgres"
             - name: AUTH_SERVER_URI
-              value: "http://authserver-service:8080"
+              value: "http://<USE-AUTHSERVER_IP:8080"
             - name: PAYMENT_SERVER_URI
-              value: "http://payment-service:9090/payment"
+              value: "http://<USE-PAYMENT-IP>:9090/payment"
           resources:
             limits:
               cpu: "500m"
